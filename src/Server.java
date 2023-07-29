@@ -11,14 +11,9 @@ import java.util.*;
 
 public class Server {
 
-    
-   
    private static int receiptNum =-90;  //receipt Number to be checked 
+   private static final int NO_BALANCE_EXISTS = -1; // var to be used once the receipt number already exists in the database
 
-
-   
-
-    
 
 
     public static void main(String[] args) {
@@ -32,9 +27,8 @@ public class Server {
         String SecureMenu = null;
         int PhoneNumber =0;
         String MemberNumber = null;
-       // String receiptNumber =null;
-       String loggedInUsername = null;
-       String loggedInPassword = null;
+        String loggedInUsername = null;
+        String loggedInPassword = null;
        
         
         
@@ -232,8 +226,8 @@ public class Server {
         }
     }
     
-    private static final int NO_BALANCE_EXISTS = -1;
-
+    
+    //method that validates the login command
     private static boolean isValidCredentials(String username, String password) {
         
         try {
@@ -263,7 +257,7 @@ public class Server {
         }return false;
     }
   
-
+    //method to generate the reference number
     private static int ReferenceNumber(String MemberNumber, int phoneNumber) {
        
         String DateofRequest = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyy-MM-dd HH:mm:ss"));
@@ -302,7 +296,7 @@ public class Server {
         return 0;
     }
   
-
+    //to track member id for a succesfull deposit in the deposits table
     private static int getUserIdByUsername(String username) {       
          
         
@@ -339,7 +333,7 @@ public class Server {
     }
 
 
-
+    //to be used to retrive the password 
     private static String validateMemberInformation(String MemberNumber, String phonenumber) {
         String user_password = null;
        

@@ -422,8 +422,6 @@ public class Server {
     }
 
 
-
-
     ////method to update the balance in the members table     
     public static String updateBalance(int receiptNum,double inamount) {
         try {
@@ -504,10 +502,6 @@ public class Server {
     }
 
 
-
-
-
-    
 
     // Helper method to check if the receipt number already exists in the deposits table
     private static int checkReceiptExists() {

@@ -12,7 +12,8 @@ import java.util.*;
 public class Server {
 
     
-   // private static String OTP = null;
+   
+   private static int receiptNum =-90;  //receipt Number to be checked 
 
 
    
@@ -106,13 +107,20 @@ public class Server {
                                                 String output = deposit(loggedInUsername, command[1], command[2],command[3]);
                                                 double inputamount = Double.parseDouble(command[1]);
                                                 int fg = Integer.parseInt(command[3]);
-                                                String newBalance =getnewBalance(fg,inputamount);
+                                                
+                                                
+                                                    
+                                                
+                                                 
+                                                
 
-                                                if (output.equals("yes")) {
-                                                    pr.println("Dear "+ loggedInUsername+" Your deposit of amount : "+inputamount+" has been made and your account balance is : "+getFinalBalance(newBalance) );
+                                                 if (output.equals("yes")) {
+                                                    updateBalance(fg,inputamount);
+                                                    pr.println("Dear "+ loggedInUsername+" Your deposit of amount : "+inputamount+" has been successfully made and your account balance is now  : "+getFinalBalance(loggedInUsername));
                                                    
-                                                } else if (output.startsWith("Error: ")) {
-                                                    pr.println("Your deposit was NOT successful.");
+                                                } else if (output.startsWith("Error: ")|| output.equals("oops!")) {
+                                                    System.out.println("Deposit failed !!");
+                                                    pr.println("Your deposit was NOT successful. Receipt number : "+fg+" is already used");
                                                 }
                                                 
                                             } else {
@@ -179,44 +187,52 @@ public class Server {
                 
     }
 
+    
+
     //deposit method to call
-    private static String deposit(String username ,String amount, String dateDeposited, String receiptNumber) {
+    private static String deposit(String username, String amount, String dateDeposited, String receiptNumber) {
         try {
-            JDBC jdbcInstance = JDBC.getInstance();
-            Connection connection = jdbcInstance.getConnection();
-            //int receiptNo = Integer.parseInt(receiptNumber);
+             receiptNum = Integer.parseInt(receiptNumber);
 
-            String sql = "INSERT INTO depository (memberId, amount, dateDeposited, receiptNumber) VALUES (?, ?, ?, ?)";
-            PreparedStatement insertStatement = connection.prepareStatement(sql);
-            insertStatement.setInt(1, getUserIdByUsername(username));
-            insertStatement.setDouble(2, Double.parseDouble(amount));
-            insertStatement.setDate(3, Date.valueOf(dateDeposited));
-            insertStatement.setInt(4, Integer.parseInt(receiptNumber));
-            insertStatement.executeUpdate();
+           // Check if receipt number exists in the database
+            int receiptExists = checkReceiptExists();
+            if (receiptExists == receiptNum) {
+                System.out.println("receiptNumber expired ");
 
-           int receiptNum = Integer.parseInt(receiptNumber);
-           double inamount =Double.parseDouble(amount);
-            System.out.println("Deposit successfull");
+                return "Error: Receipt number already exists. Please use a different receipt number.";
+                
+                
+            }else{
 
-            return "yes";
-           
+                JDBC jdbcInstance = JDBC.getInstance();
+                Connection connection = jdbcInstance.getConnection();
+
+                String sql = "INSERT INTO deposits (userId, amount, dateDeposited, receiptNumber) VALUES (?, ?, ?, ?)";
+                PreparedStatement insertStatement = connection.prepareStatement(sql);
+                insertStatement.setInt(1, getUserIdByUsername(username));
+                insertStatement.setDouble(2, Double.parseDouble(amount));
+                insertStatement.setDate(3, Date.valueOf(dateDeposited));
+                insertStatement.setInt(4, receiptNum);
+                insertStatement.executeUpdate();
+
+                System.out.println("Deposit successful");
+                return "yes";
+            }
+            
+
         } catch (SQLException e) {
-            // Print the detailed error message and stack trace
             e.printStackTrace();
             return "Error: Failed to deposit. Please check the server logs for more information.";
         } catch (NumberFormatException e) {
-            // Print the detailed error message and stack trace
             e.printStackTrace();
             return "Error: Invalid receiptNumber format.";
-            
         } catch (Exception e) {
-            // Print the detailed error message and stack trace
             e.printStackTrace();
             return "Error: An unexpected error occurred during deposit.";
-            
         }
     }
-
+    
+    private static final int NO_BALANCE_EXISTS = -1;
 
     private static boolean isValidCredentials(String username, String password) {
         
@@ -228,7 +244,7 @@ public class Server {
    
             
 
-            String sql = "SELECT * FROM member WHERE username = ? AND password = ?";
+            String sql = "SELECT * FROM users WHERE Username = ? AND password = ?";
             PreparedStatement statement = connection.prepareStatement(sql);
             statement.setString(1, username);
             statement.setString(2, password);
@@ -246,13 +262,6 @@ public class Server {
             
         }return false;
     }
-    
-   
-
-   
-
-
-
   
 
     private static int ReferenceNumber(String MemberNumber, int phoneNumber) {
@@ -292,9 +301,7 @@ public class Server {
     
         return 0;
     }
-    
-
-
+  
 
     private static int getUserIdByUsername(String username) {       
          
@@ -307,17 +314,17 @@ public class Server {
             JDBC jdbcInstance = JDBC.getInstance();
             Connection connection = jdbcInstance.getConnection();
            
-            String selectSql = "SELECT memberId FROM member WHERE username = ?";
+            String selectSql = "SELECT ID FROM users WHERE username = ?";
             PreparedStatement selectStatement = connection.prepareStatement(selectSql);
             selectStatement.setString(1, username);
             ResultSet resultSet = selectStatement.executeQuery();
 
             
             if (resultSet.next()) {
-                userId = resultSet.getInt("memberId");
+                userId = resultSet.getInt("ID");
                 return userId;
             }else {
-                System.out.println("No memberId found for the above username");
+                System.out.println("No ID found for the above username");
                 
             }
 
@@ -392,28 +399,29 @@ public class Server {
 
  
     //returns oldaccountbalance
-    public static double getOldAccountBalance(int receiptNum)  {
-        double balance = 0.0;
-        
-        String query = "SELECT m.accountBalance FROM member m  INNER JOIN depository d ON m.memberId = d.memberId  WHERE d.receiptNumber = ?";
-
-
+    public static double getOldAccountBalance()  {
+        double balance = NO_BALANCE_EXISTS;
+       
         try{
+
 
             JDBC jdbcInstance = JDBC.getInstance();
             Connection connection = jdbcInstance.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query);
+
+            String query = "SELECT u.accountBalance FROM users u  INNER JOIN deposits d ON u.ID = d.userId  WHERE d.receiptNumber = ?";
+
+            PreparedStatement statement = connection.prepareStatement(query);
              
             statement.setInt(1, receiptNum);
 
             ResultSet resultSet = statement.executeQuery();
                 if (resultSet.next()) {
                     balance = resultSet.getDouble("accountBalance");
-
+                   
                 }
             
         }catch(Exception e){
-            System.out.println("Error !:" +e.getMessage());
+            System.out.println("Error: " +e.getMessage());
         }
 
         return balance;
@@ -423,20 +431,29 @@ public class Server {
 
 
     ////method to update the balance in the members table     
-      public static String getnewBalance(int receiptNum,double inamount) {
+    public static String updateBalance(int receiptNum,double inamount) {
         try {
-            // Connect to the database and fetch the current balance
-            double oldbalance = getOldAccountBalance(receiptNum);
 
-            // Update the balance with the deposited amount
+            
+            
+            double oldbalance = getOldAccountBalance();
+
+            if (oldbalance == NO_BALANCE_EXISTS) {
+
+                return "Error: No balance exists for the given receipt number.";
+                
+            }
+
+
+            //update the balance with the deposited amount 
             double newBalance = oldbalance + inamount;
 
             // Save the new balance to the database (you need an UPDATE query)
 
             // For example:
-            String updateQuery = "UPDATE member m " +
-                    "JOIN depository d ON m.memberId = d.memberId " +
-                    "SET m.accountBalance = ? " +
+            String updateQuery = "UPDATE users s " +
+                    "JOIN deposits d ON s.ID = d.userId " +
+                    "SET s.accountBalance = ? " +
                     "WHERE d.receiptNumber = ?";
 
             
@@ -452,7 +469,7 @@ public class Server {
             System.out.println("balance updated successfuly");
             return "yay";
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.out.println("Error: "+e.getMessage());
             // If there's an error, log the failure and return false
             System.out.println("Balance not updated");
             return "oops!";
@@ -462,18 +479,15 @@ public class Server {
 
 
     //method to get the final balance after update
-     public static double getFinalBalance(String username)  {
-        double balance =  Double.MIN_VALUE;
-
-        
-        
-        
-        String query = "SELECT accountBalance FROM member where username = ?";
+     public static int getFinalBalance(String username)  {
+        //double balance =  Double.MIN_VALUE;
+        int balance =  0;
 
         try{
 
             JDBC jdbcInstance = JDBC.getInstance();
             Connection connection = jdbcInstance.getConnection();
+            String query = "SELECT accountBalance FROM users where username = ?";
             PreparedStatement statement = connection.prepareStatement(query);
              
             statement.setString(1, username);
@@ -482,18 +496,48 @@ public class Server {
                 
                 if (resultSet.next()) {
 
-                    balance = resultSet.getDouble("accountBalance");
+                    balance = resultSet.getInt("accountBalance");
+                    return balance;
 
                 }
                 
             
         }catch(Exception e){
-            System.out.println("Error !:" +e.getMessage());
+            System.out.println("Error: " +e.getMessage());
         }
 
-        return balance;
+        return 0;
     }
 
+
+
+
+
+    
+
+    // Helper method to check if the receipt number already exists in the deposits table
+    private static int checkReceiptExists() {
+        int checkedReceipt =-1;
+        try {
+            JDBC jdbcInstance = JDBC.getInstance();
+            Connection connection = jdbcInstance.getConnection();
+            String query = "SELECT receiptNumber FROM deposits WHERE receiptNumber = ?";
+            PreparedStatement statement = connection.prepareStatement(query);
+            statement.setInt(1, receiptNum);
+            ResultSet resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                checkedReceipt = resultSet.getInt("receiptNumber");
+                return checkedReceipt;  //returns the receiptnumber if it exists
+            }
+                
+            
+            
+        } catch (SQLException e) {
+            e.printStackTrace();
+            
+        }
+        return 0;  //returns a zero if it does not exist
+    }
 
 
 }

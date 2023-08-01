@@ -133,15 +133,15 @@ public class Server {
 
                                                 String LoanResult = LoanRequest(loggedInUsername,amountrest, months);
 
-                                                
-                                                
+                                                if (LoanResult.startsWith("L")) {
                                                     pr.println("Dear MR/MRS "+loggedInUsername+" your loan request of ugx "+amountrest+" to be paid in "+months+" month/s has been received for processing Your loan application number is : "+LoanResult);
-                                                    
-                                               
+                                                    System.out.println(LoanResult);
 
-                                                    
-                                               
+                                                }else{
+                                                    pr.println("LoanResult failed");
+                                                }
 
+                                                
                                                 
                                             }else {
                                                 pr.println("Invalid Loan request command format. Please provide all the required parameters.");
@@ -589,7 +589,7 @@ public class Server {
             insertStatement.setString(1, username);
             insertStatement.setInt(2, amountrequesting);
             insertStatement.setInt(3, pymentperiod);
-            insertStatement.executeUpdate();
+            
 
             
 
@@ -607,7 +607,7 @@ public class Server {
                 if (resultSet.next()) {
                     generatedLoanApplicationNumber = resultSet.getString("LoanAppNumber");
                 }else{
-                    return "Loan Application number not found";
+                    return "not found";
                 }
                 fetchStatement.close();
             }
@@ -775,6 +775,14 @@ public class Server {
 
 
     }
+
+
+
+
+
+
+
+
 
 }
 

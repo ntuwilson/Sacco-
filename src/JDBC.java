@@ -12,9 +12,9 @@ public class JDBC {
 
     public void connect() {
         // check connection
-        String url = "jdbc:mysql://localhost:3306/deposit";
+        String url = "jdbc:mysql://localhost:3306/Sacco";
         String username = "root";
-        String password = "";
+        String password = "Password1234";
 
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");

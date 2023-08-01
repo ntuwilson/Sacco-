@@ -6,6 +6,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
 import java.util.*;
 
+import com.mysql.cj.protocol.Resultset;
+
 
 
 
@@ -29,7 +31,8 @@ public class Server {
         String MemberNumber = null;
         String loggedInUsername = null;
         String loggedInPassword = null;
-       
+        Scanner sc = null;
+       // Scanner hj=null;
         
         
 
@@ -87,8 +90,9 @@ public class Server {
                                 // Loop to handle user commands within the logged-in session
                                 while (true) {
                                     userInput = fromclient.nextLine();
+                                    System.out.println(userInput);
                                     command = userInput.split(" ");
-
+                                    
                                     
                                     switch (command[0]) {
                                         case "logout":
@@ -101,13 +105,7 @@ public class Server {
                                                 String output = deposit(loggedInUsername, command[1], command[2],command[3]);
                                                 double inputamount = Double.parseDouble(command[1]);
                                                 int fg = Integer.parseInt(command[3]);
-                                                
-                                                
-                                                    
-                                                
-                                                 
-                                                
-
+                                             
                                                  if (output.equals("yes")) {
                                                     updateBalance(fg,inputamount);
                                                     pr.println("Dear "+ loggedInUsername+" Your deposit of amount : "+inputamount+" has been successfully made and your account balance is now  : "+getFinalBalance(loggedInUsername));
@@ -124,15 +122,65 @@ public class Server {
 
                                         case "requestLoan":
                                             // Handle requestLoan command
+                                            if (command.length == 3) {
+                                                int amountrest =Integer.parseInt(command[1]);
+                                                int months = Integer.parseInt(command[2]);
+                                                //int dd = countLoanRequests();
+                                                
+                                                //double condition = (3/4)*getFinalBalance(loggedInUsername);
+                                                
+                                                
+
+                                                String LoanResult = LoanRequest(loggedInUsername,amountrest, months);
+
+                                                
+                                                
+                                                    pr.println("Dear MR/MRS "+loggedInUsername+" your loan request of ugx "+amountrest+" to be paid in "+months+" month/s has been received for processing Your loan application number is : "+LoanResult);
+                                                    
+                                               
+
+                                                    
+                                               
+
+                                                
+                                            }else {
+                                                pr.println("Invalid Loan request command format. Please provide all the required parameters.");
+                                            }
+                                            
+                                            
+                                            
                                             break;
-                                        case "checkLoanStatus":
+                                        case "LoanRequestStatus":
                                             // Handle checkLoanStatus command
+
+                                            if (command.length==2) {
+                                               String applicationNumber = (command[1]);
+                                               String status = LoanDistribution();
+                                               String gotten = validateLaonApplicationNumberofCheckStatus(applicationNumber);
+
+                                               if (status.startsWith("System ")) {
+
+                                                if (gotten.equals("Not gotten")||gotten.equals("Not found")) {
+                                                    pr.println("Oops ! currently there's no loan application for the above number");
+                                                }else{
+                                                    pr.println("Dear our customer your loan for the loan application number : "+applicationNumber +" is still pending");
+                                                }
+                                                
+                                               }else {
+                                                pr.println("Working on it");
+                                               }
+                                            }
+
+
+
+
                                             break;
                                         case "CheckStatement":
                                             // Handle CheckStatement command
                                             break;
                                         default:
                                             pr.println("Please follow the menu to acces the services.");
+                                           
                                     }
                                    
                                 }
@@ -393,7 +441,7 @@ public class Server {
 
  
     //returns oldaccountbalance
-    public static double getOldAccountBalance()  {
+    private static double getOldAccountBalance()  {
         double balance = NO_BALANCE_EXISTS;
        
         try{
@@ -423,7 +471,7 @@ public class Server {
 
 
     ////method to update the balance in the members table     
-    public static String updateBalance(int receiptNum,double inamount) {
+    private static String updateBalance(int receiptNum,double inamount) {
         try {
 
             
@@ -471,7 +519,7 @@ public class Server {
 
 
     //method to get the final balance after update
-     public static int getFinalBalance(String username)  {
+     private static int getFinalBalance(String username)  {
         //double balance =  Double.MIN_VALUE;
         int balance =  0;
 
@@ -527,6 +575,206 @@ public class Server {
         return 0;  //returns a zero if it does not exist
     }
 
+    //method to request for a loan and also return a loanApplication Number
+    private static String LoanRequest(String username,int amountrequesting, int pymentperiod){
+        String generatedLoanApplicationNumber =null;
+        
+        
+        
+        try {
+            JDBC jdbcInstance = JDBC.getInstance();
+            Connection connection = jdbcInstance.getConnection();
+            String querry = "insert into Loanrequest (username, amountrequesting, paymentperiod) values (?,?,?)";
+            PreparedStatement insertStatement = connection.prepareStatement(querry);
+            insertStatement.setString(1, username);
+            insertStatement.setInt(2, amountrequesting);
+            insertStatement.setInt(3, pymentperiod);
+            insertStatement.executeUpdate();
+
+            
+
+            int rowsAffected = insertStatement.executeUpdate();
+
+            //fetching the generated loan application number
+            if (rowsAffected > 0) {
+                String fetchQuery = "SELECT LoanAppNumber FROM LoanRequest WHERE username = ? AND amountrequesting = ? AND paymentperiod = ?";
+                PreparedStatement fetchStatement = connection.prepareStatement(fetchQuery);
+                fetchStatement.setString(1, username);
+                fetchStatement.setInt(2, amountrequesting);
+                fetchStatement.setInt(3, pymentperiod);
+
+                ResultSet resultSet = fetchStatement.executeQuery();
+                if (resultSet.next()) {
+                    generatedLoanApplicationNumber = resultSet.getString("LoanAppNumber");
+                }else{
+                    return "Loan Application number not found";
+                }
+                fetchStatement.close();
+            }
+
+            //System.out.println(generatedLoanApplicationNumber);
+           
+            return generatedLoanApplicationNumber;
+           
+            
+        } catch (Exception e) {
+            System.out.println("Denied :"+e.getMessage());
+
+            return "Error :";
+        }
+
+        
+
+    }
+
+
+    //method to count the number of loan requests from the loan requests
+    private static int countLoanRequests(){
+        int counted=-1;
+        
+        try {
+            JDBC jdbcInstance = JDBC.getInstance();
+            Connection connection = jdbcInstance.getConnection();
+            String querry = "SELECT count(*)  from Loanrequest";
+            PreparedStatement statement = connection.prepareStatement(querry);
+            ResultSet result =  statement.executeQuery();
+
+            if (result.next()) {
+                counted = result.getInt("count(*)");
+                return counted;
+                
+            }
+            
+            
+        } catch (Exception e) {
+            System.out.println("Eror :"+e.getMessage());
+            
+        }
+        
+        return 0;
+    }
+
+
+    //method to calculate the total vailable funds in the deposits table as the total available funds
+    private static int availableFunds(){
+
+        int totalSaccoFunds =-1;
+
+        try {
+            JDBC jdbcInstance = JDBC.getInstance();
+            Connection connection = jdbcInstance.getConnection();
+            String querry ="select sum(amount) from deposits";
+            PreparedStatement statement = connection.prepareStatement(querry);
+            ResultSet result = statement.executeQuery();
+
+            if (result.next()) {
+                totalSaccoFunds = result.getInt("sum(amount)");
+                return totalSaccoFunds;
+            }
+
+
+            
+        } catch (Exception e) {
+            System.out.println("Error :"+e.getMessage());
+        }
+        return 0;
+
+    }
+
+
+
+
+
+    // //method to calculate percentage loan progress 
+    private static double loanprogress(int monthsCleared,int expectedMonths){
+        
+        double Ploanprogress;
+
+        Ploanprogress = (monthsCleared/expectedMonths)*100;
+
+        return Ploanprogress;
+
+
+    }
+
+
+    // //method to calculate contribution progress
+     private static double contributionProg(){
+        int totalamountcontributed = getFinalBalance(null);
+        int totalsaccofds = availableFunds();
+        double ContProgress ;
+
+        ContProgress = (totalamountcontributed/totalsaccofds)*100;
+
+
+       
+
+        return ContProgress;
+    }
+
+
+
+
+    //loanDistribution method
+    private static String  LoanDistribution(){
+        int available_funds = availableFunds();
+        int LoanRequestNumbers = countLoanRequests();
+        double contProgres = contributionProg();
+      //  double loanPrgs = loanprogress(available_funds, LoanRequestNumbers);  // this is required after someone has gotten the loan and is  now paying 
+
+        if (LoanRequestNumbers >= 10 && available_funds >= 2000000) {
+
+            if (contProgres < 0.5) {
+                return "Low contribution progress";
+            }else if (contProgres == 0.5) {
+                return "Average contribution progress";
+            }else {
+                return "Better contribution progress";
+            }
+
+
+        }else {
+            return "System still under Loan Distribution ";
+        }
+
+        
+       
+        
+    }
+
+
+
+
+
+    //method to check whether the input loanApplication number is valid
+    private static String validateLaonApplicationNumberofCheckStatus(String LoanAppNo){
+
+        String gottenApplicationNumber =null;
+
+        try {
+            JDBC jdbcInstance = JDBC.getInstance();
+            Connection connection = jdbcInstance.getConnection();
+
+            String querry = "select LoanAppNumber from LoanRequest where LoanAppNumber =?";
+            PreparedStatement statement =connection.prepareStatement(querry);
+            statement.setString(1,LoanAppNo);
+            ResultSet result = statement.executeQuery();
+
+            if (result.next()) {
+                gottenApplicationNumber = result.getString("LoanAppNumber");
+                return gottenApplicationNumber;
+            }else{
+                return "Not gotten";
+            }
+            
+        } catch (Exception e) {
+            System.out.println("Error :"+e.getMessage());
+            return "Not found ";
+        }
+        
+
+
+    }
 
 }
 

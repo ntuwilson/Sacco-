@@ -1,3 +1,5 @@
+# Ignore JDBC.java and all .class files
+JDBC.java
 *.class
 
-!JDBC.java
+
